@@ -53,15 +53,25 @@ class MyGroupsView(generics.ListAPIView):
     serializer_class = GroupSerializer
 
     def get_queryset(self):
-        return Group.objects.filter(
-            memberships__user=self.request.user
-        ).distinct().order_by("-created_at")
+        return (
+            Group.objects.filter(memberships__user=self.request.user)
+            .prefetch_related("memberships__user")
+            .select_related("creator")
+            .distinct()
+            .order_by("-created_at")
+        )
 
 
 class GroupDetailView(generics.RetrieveAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = GroupSerializer
-    queryset = Group.objects.all()
+
+    def get_queryset(self):
+        return (
+            Group.objects.all()
+            .prefetch_related("memberships__user")
+            .select_related("creator")
+        )
 
 
 class RemoveMemberView(APIView):

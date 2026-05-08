@@ -3,18 +3,31 @@ from .models import Group, GroupMember
 
 
 class GroupMemberSerializer(serializers.ModelSerializer):
-    name = serializers.CharField(source="user.name", read_only=True)
+    name = serializers.SerializerMethodField()
     email = serializers.EmailField(source="user.email", read_only=True)
 
     class Meta:
         model = GroupMember
         fields = ["id", "name", "email", "role", "joined_at"]
 
+    def get_name(self, obj):
+        if hasattr(obj.user, "username") and obj.user.username:
+            return obj.user.username
+
+        if hasattr(obj.user, "name") and obj.user.name:
+            return obj.user.name
+
+        return obj.user.email.split("@")[0]
+
 
 class GroupSerializer(serializers.ModelSerializer):
-    creator_name = serializers.CharField(source="creator.name", read_only=True)
+    creator_name = serializers.SerializerMethodField()
     creator_email = serializers.EmailField(source="creator.email", read_only=True)
-    members = GroupMemberSerializer(source="memberships", many=True, read_only=True)
+    members = GroupMemberSerializer(
+        source="memberships",
+        many=True,
+        read_only=True
+    )
 
     class Meta:
         model = Group
@@ -30,6 +43,15 @@ class GroupSerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = ["id", "creator", "created_at"]
+
+    def get_creator_name(self, obj):
+        if hasattr(obj.creator, "username") and obj.creator.username:
+            return obj.creator.username
+
+        if hasattr(obj.creator, "name") and obj.creator.name:
+            return obj.creator.name
+
+        return obj.creator.email.split("@")[0]
 
 
 class GroupCreateSerializer(serializers.ModelSerializer):
@@ -57,7 +79,9 @@ class JoinGroupSerializer(serializers.Serializer):
                 group_code__iexact=group_code,
             )
         except Group.DoesNotExist:
-            raise serializers.ValidationError("Group name or group code does not match.")
+            raise serializers.ValidationError(
+                "Group name or group code does not match."
+            )
 
         attrs["group"] = group
         return attrs
